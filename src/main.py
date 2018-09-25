@@ -90,8 +90,8 @@ def send(chans):
     titles = get_title(json_body)
 
     bodies = []
+    print(titles)
     for i in range(len(stats)):
-        print(titles[i], chans[i], stats[i])
         bodies.append(influxdb_json_body(titles[i], {
             'id': chans[i],
         }, stats[i]))
