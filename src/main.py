@@ -64,7 +64,6 @@ def get_stats(json_body):
     stats = json_body['items'][0]['statistics']
     return {
         'viewCount': int(stats['viewCount']),
-        'commentCount': int(stats['commentCount']),
         'subscriberCount': int(stats['subscriberCount']),
         'videoCount': int(stats['videoCount'])
     }
