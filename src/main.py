@@ -108,10 +108,10 @@ def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
     chans = channels()
-    top_10000 = chans[:1000]
+    top_1000 = chans[:1000]
 
     while True:
-        chunky = chunks(top_10000)
+        chunky = list(chunks(top_1000))
         for chans in chunky:
             send(chans)
 
