@@ -68,9 +68,7 @@ def get_stats(json_body):
     for s in stats:
         stats_tmp = s['statistics']
         stats_body.append({
-            'viewCount': int(stats_tmp['viewCount']),
             'subscriberCount': int(stats_tmp['subscriberCount']),
-            'videoCount': int(stats_tmp['videoCount'])
         })
 
     return stats_body
