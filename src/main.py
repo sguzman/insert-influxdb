@@ -1,28 +1,30 @@
-import requests
-import json
 import influxdb
 import queue
 import threading
 import psycopg2
 from multiprocessing.dummy import Pool
 import datetime
-import os
 import math
 import random
+import subs.subs
+import asyncio
 
 
 seen = queue.Queue()
-cores = 8
+cores = 16
 pool = Pool(cores)
-top_limit = 10000
 
 
-def influxdb_json_body(measure_name, fields):
+def influxdb_json_body(name, subscribers):
     return {
-        'measurement': measure_name,
-        'tags': {},
+        'measurement': 'subs',
+        'tags': {
+            'name': name
+        },
         'time': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'fields': fields
+        'fields': {
+            'subs': subscribers
+        }
     }
 
 
@@ -30,10 +32,9 @@ def influxdb_daemon():
     client = influxdb.InfluxDBClient('localhost', 8086, 'admin', 'admin', 'youtube')
 
     while True:
-        json_bod = seen.get(block=True)
-        client.write_points(json_bod)
-        lucky = random.choice(json_bod)
-        print(lucky['time'], lucky['measurement'], 'subs', lucky['fields']['subscriberCount'])
+        json_single = seen.get(block=True)
+        client.write_points([json_single])
+        print(json_single['time'], json_single['tags']['name'], 'subs', json_single['fields']['subs'])
 
 
 def channels():
@@ -49,78 +50,36 @@ def channels():
     return records
 
 
-def chan_stats(chans):
-    key = os.environ['API_KEY']
-    url = 'https://www.googleapis.com/youtube/v3/channels'
-    params = {
-        'part': 'snippet,statistics',
-        'id': ','.join(chans),
-        'key': key
-    }
-
-    req = requests.get(url, params=params)
-    json_bod = json.loads(req.text)
-    return json_bod
-
-
-def get_stats(json_body):
-    stats = json_body['items']
-
-    stats_body = []
-    for s in stats:
-        stats_tmp = s['statistics']
-        stats_body.append({
-            'subscriberCount': int(stats_tmp['subscriberCount']),
-        })
-
-    return stats_body
-
-
-def get_title(json_body):
-    items = json_body['items']
-
-    titles = []
-    for i in items:
-        titles.append(i['snippet']['title'])
-
-    return titles
-
-
-def send(chans):
-    json_body = chan_stats(chans)
-    stats = get_stats(json_body)
-    titles = get_title(json_body)
-
-    bodies = []
-    for i in range(len(stats)):
-        bodies.append(influxdb_json_body(titles[i], stats[i]))
-
+async def async_get(chan):
+    title, stat = subs.subs.subs(chan)
+    bodies = influxdb_json_body(title, stat)
     seen.put(bodies)
 
 
-def chunks(l):
-    for i in range(0, len(l), 50):
-        yield l[i:i + 50]
+def send(chan):
+    asyncio.run(async_get(chan))
+
+
+def priority(chans):
+    priority = [math.ceil(len(chans) * ((1 / (1 + x)) * (1 / (1 + x)))) for x in range(len(chans))]
+    priority_chans = []
+    for i in range(len(priority)):
+        prior = priority[i]
+        for j in range(prior):
+            priority_chans.append(chans[i])
+
+    random.shuffle(priority_chans)
+    return priority_chans
 
 
 def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
     chans = channels()
-    top_chans = chans[:top_limit]
-
-    priority = [math.ceil(len(top_chans) * ((1/(1+x)) * (1/(1+x)))) for x in range(len(top_chans))]
-    priority_chans = []
-    for i in range(len(priority)):
-        prior = priority[i]
-        for j in range(prior):
-            priority_chans.append(top_chans[i])
-
-    random.shuffle(priority_chans)
+    priority_chans = priority(chans)
 
     while True:
-        chunky = list(chunks(priority_chans))
-        pool.map(send, chunky)
+        pool.map(send, priority_chans)
 
 
 main()
