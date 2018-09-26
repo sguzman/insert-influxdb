@@ -51,9 +51,12 @@ def channels():
 
 
 async def async_get(chan):
-    title, stat = subs.subs.subs(chan)
-    bodies = influxdb_json_body(title, stat)
-    seen.put(bodies)
+    try:
+        title, stat = subs.subs.subs(chan)
+        bodies = influxdb_json_body(title, stat)
+        seen.put(bodies)
+    except AttributeError as e:
+        print(e)
 
 
 def send(chan):
@@ -61,7 +64,7 @@ def send(chan):
 
 
 def priority(chans):
-    priority = [math.ceil(len(chans) * ((1 / (1 + x)) * (1 / (1 + x)))) for x in range(len(chans))]
+    priority = [math.ceil(math.pow(len(chans) / (1 + x), 2)/len(chans)) for x in range(len(chans))]
     priority_chans = []
     for i in range(len(priority)):
         prior = priority[i]
