@@ -11,7 +11,7 @@ import os
 
 
 seen = queue.Queue()
-cores = 8
+cores = 2
 pool = Pool(cores)
 
 
@@ -108,12 +108,11 @@ def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
     chans = channels()
-    top_100 = chans[:100]
+    top_1000 = chans[:1000]
 
     while True:
-        chunky = list(chunks(top_100))
-        for chans in chunky:
-            send(chans)
+        chunky = list(chunks(top_1000))
+        pool.map(send, chunky)
 
 
 main()
