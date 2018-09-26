@@ -11,8 +11,9 @@ import os
 
 
 seen = queue.Queue()
-cores = 2
+cores = 4
 pool = Pool(cores)
+top_limit = 10000
 
 
 def influxdb_json_body(measure_name, tags, fields):
@@ -30,6 +31,7 @@ def influxdb_daemon():
     while True:
         json_bod = seen.get(block=True)
         client.write_points(json_bod)
+        print(datetime.datetime.now())
 
 
 def channels():
@@ -90,7 +92,6 @@ def send(chans):
     titles = get_title(json_body)
 
     bodies = []
-    print(titles)
     for i in range(len(stats)):
         bodies.append(influxdb_json_body(titles[i], {
             'id': chans[i],
@@ -108,10 +109,10 @@ def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
     chans = channels()
-    top_1000 = chans[:1000]
+    top_chans = chans[:top_limit]
 
     while True:
-        chunky = list(chunks(top_1000))
+        chunky = list(chunks(top_chans))
         pool.map(send, chunky)
 
 
