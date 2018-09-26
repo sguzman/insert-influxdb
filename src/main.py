@@ -8,18 +8,20 @@ import psycopg2
 from multiprocessing.dummy import Pool
 import datetime
 import os
+import math
+import random
 
 
 seen = queue.Queue()
-cores = 4
+cores = 8
 pool = Pool(cores)
 top_limit = 10000
 
 
-def influxdb_json_body(measure_name, tags, fields):
+def influxdb_json_body(measure_name, fields):
     return {
         'measurement': measure_name,
-        'tags': tags,
+        'tags': {},
         'time': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
         'fields': fields
     }
@@ -31,7 +33,8 @@ def influxdb_daemon():
     while True:
         json_bod = seen.get(block=True)
         client.write_points(json_bod)
-        print(datetime.datetime.now())
+        lucky = random.choice(json_bod)
+        print(lucky['time'], lucky['measurement'], 'subs', lucky['fields']['subscriberCount'])
 
 
 def channels():
@@ -91,9 +94,7 @@ def send(chans):
 
     bodies = []
     for i in range(len(stats)):
-        bodies.append(influxdb_json_body(titles[i], {
-            'id': chans[i],
-        }, stats[i]))
+        bodies.append(influxdb_json_body(titles[i], stats[i]))
 
     seen.put(bodies)
 
@@ -109,8 +110,17 @@ def main():
     chans = channels()
     top_chans = chans[:top_limit]
 
+    priority = [math.ceil(len(top_chans) * ((1/(1+x)) * (1/(1+x)))) for x in range(len(top_chans))]
+    priority_chans = []
+    for i in range(len(priority)):
+        prior = priority[i]
+        for j in range(prior):
+            priority_chans.append(top_chans[i])
+
+    random.shuffle(priority_chans)
+
     while True:
-        chunky = list(chunks(top_chans))
+        chunky = list(chunks(priority_chans))
         pool.map(send, chunky)
 
 
