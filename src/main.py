@@ -11,7 +11,7 @@ import asyncio
 
 
 seen = queue.Queue()
-cores = 16
+cores = 4
 pool = Pool(cores)
 
 
