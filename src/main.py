@@ -12,6 +12,7 @@ import asyncio
 
 seen = queue.Queue()
 cores = 4
+limit = 1000
 pool = Pool(cores)
 
 
@@ -55,7 +56,7 @@ async def async_get(chan):
         title, stat = subs.subs.subs(chan)
         bodies = influxdb_json_body(title, stat)
         seen.put(bodies)
-    except AttributeError as e:
+    except Exception as e:
         print(e)
 
 
@@ -78,7 +79,7 @@ def priority(chans):
 def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
-    chans = channels()
+    chans = channels()[:limit]
     priority_chans = priority(chans)
 
     while True:
