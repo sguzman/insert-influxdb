@@ -6,9 +6,11 @@ from multiprocessing.dummy import Pool
 import datetime
 import math
 import random
-import subs.subs
 import asyncio
 import sys
+import os
+import requests
+import json
 
 
 seen = queue.Queue()
@@ -17,16 +19,12 @@ limit = 1000
 pool = Pool(cores)
 
 
-def influxdb_json_body(name, subscribers):
+def influxdb_json_body(name, fields):
     return {
-        'measurement': 'subs',
-        'tags': {
-            'name': name
-        },
+        'measurement': 'Channels',
+        'tags': name,
         'time': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'fields': {
-            'subs': subscribers
-        }
+        'fields': fields
     }
 
 
@@ -35,8 +33,8 @@ def influxdb_daemon():
 
     while True:
         json_single = seen.get(block=True)
-        client.write_points([json_single])
-        print(json_single['time'], json_single['tags']['name'], 'subs', json_single['fields']['subs'])
+        client.write_points(json_single)
+        print('Insert at', datetime.datetime.now())
 
 
 def channels():
@@ -52,17 +50,23 @@ def channels():
     return records
 
 
-async def async_get(chan):
+async def async_get(chans):
     try:
-        title, stat = subs.subs.subs(chan)
-        bodies = influxdb_json_body(title, stat)
+        json_body = chan_stats(chans)
+        stats = get_stats(json_body)
+        titles = get_title(json_body)
+
+        bodies = []
+        for i in range(len(stats)):
+            bodies.append(influxdb_json_body({'name': titles[i]}, stats[i]))
+
         seen.put(bodies)
     except Exception as e:
         print(e, file=sys.stderr)
 
 
-def send(chan):
-    asyncio.run(async_get(chan))
+def send(chans):
+    asyncio.run(async_get(chans))
 
 
 def priority(chans):
@@ -77,6 +81,50 @@ def priority(chans):
     return priority_chans
 
 
+def chan_stats(chans):
+    key = os.environ['API_KEY']
+    url = 'https://www.googleapis.com/youtube/v3/channels'
+    params = {
+        'part': 'snippet,statistics',
+        'id': ','.join(chans),
+        'key': key
+    }
+
+    req = requests.get(url, params=params)
+    json_bod = json.loads(req.text)
+    return json_bod
+
+
+def get_stats(json_body):
+    stats = json_body['items']
+
+    stats_body = []
+    for s in stats:
+        stats_tmp = s['statistics']
+        stats_body.append({
+            'viewCount': int(stats_tmp['viewCount']),
+            'subscriberCount': int(stats_tmp['subscriberCount']),
+            'videoCount': int(stats_tmp['videoCount'])
+        })
+
+    return stats_body
+
+
+def get_title(json_body):
+    items = json_body['items']
+
+    titles = []
+    for i in items:
+        titles.append(i['snippet']['title'])
+
+    return titles
+
+
+def chunks(l):
+    for i in range(0, len(l), 50):
+        yield l[i:i + 50]
+
+
 def main():
     threading.Thread(target=influxdb_daemon, daemon=True).start()
 
@@ -84,7 +132,8 @@ def main():
     priority_chans = priority(chans)
 
     while True:
-        pool.map(send, priority_chans)
+        chunky = list(chunks(priority_chans))
+        pool.map(send, chunky)
 
 
 main()
