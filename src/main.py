@@ -8,6 +8,7 @@ import math
 import random
 import subs.subs
 import asyncio
+import sys
 
 
 seen = queue.Queue()
@@ -57,7 +58,7 @@ async def async_get(chan):
         bodies = influxdb_json_body(title, stat)
         seen.put(bodies)
     except Exception as e:
-        print(e)
+        print(e, file=sys.stderr)
 
 
 def send(chan):
