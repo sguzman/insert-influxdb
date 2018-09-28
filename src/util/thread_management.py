@@ -4,8 +4,8 @@ import threading
 import traceback
 from multiprocessing.dummy import Pool
 
-import http_tools.util
-import influx.util
+import util.influx
+import util.http_tools
 
 cores = 4
 pool = Pool(cores)
@@ -13,15 +13,15 @@ pool = Pool(cores)
 
 async def async_get(chans):
     try:
-        json_body = http_tools.util.json_bod(chans)
-        stats = http_tools.util.stats(json_body)
-        titles = http_tools.util.title(json_body)
+        json_body = util.http_tools.json_bod(chans)
+        stats = util.http_tools.stats(json_body)
+        titles = util.http_tools.title(json_body)
 
         bodies = []
         for i in range(len(stats)):
-            bodies.append(influx.util.json({'name': titles[i]}, stats[i]))
+            bodies.append(util.influx.json({'name': titles[i]}, stats[i]))
 
-        influx.util.seen.put(bodies)
+        util.influx.seen.put(bodies)
     except Exception as e:
         print(e, file=sys.stderr)
         traceback.print_exc()
@@ -43,4 +43,4 @@ def loop(chans):
 
 
 def start_influx_insert_daemon():
-    threading.Thread(target=influx.util.start, daemon=True).start()
+    threading.Thread(target=util.influx.start, daemon=True).start()

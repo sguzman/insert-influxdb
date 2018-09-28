@@ -1,14 +1,14 @@
-import thread_managment.util
-import postgresql.util
+import util.thread_management
+import util.postgresql
 
 limit = 1000
 
 
 def main():
-    thread_managment.util.start_influx_insert_daemon()
-    chans = postgresql.util.total_chans(limit)
+    util.thread_management.start_influx_insert_daemon()
+    chans = util.postgresql.total_chans(limit)
 
-    thread_managment.util.loop(chans)
+    util.thread_management.loop(chans)
 
 
 main()
