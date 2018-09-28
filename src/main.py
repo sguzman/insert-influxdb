@@ -2,7 +2,7 @@ import util.thread_management
 import util.postgresql
 
 limit = 1000
-cores = 4
+cores = 2
 
 
 def main():
