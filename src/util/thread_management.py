@@ -7,7 +7,7 @@ from multiprocessing.dummy import Pool
 import util.influx
 import util.http_tools
 
-cores = 4
+cores = 1
 pool = Pool(cores)
 
 
@@ -36,7 +36,10 @@ def chunks(l):
         yield l[i:i + 50]
 
 
-def loop(chans):
+def loop(chans, num_cores):
+    global cores
+    cores = num_cores
+
     while True:
         chunky = list(chunks(chans))
         pool.map(send, chunky)
