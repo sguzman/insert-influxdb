@@ -3,9 +3,12 @@ import math
 import random
 
 
+table = 'chans'
+
+
 def query_channels(limit):
     conn = psycopg2.connect(user='root', password='', host='127.0.0.1', port='5432', database='youtube')
-    sql = f'SELECT channel_id FROM youtube.channels.channels LIMIT {limit}'
+    sql = f'SELECT chan_serial FROM youtube.channels.{table}  ORDER BY subs DESC LIMIT {limit}'
     cursor = conn.cursor()
     cursor.execute(sql)
     records = [x[0] for x in cursor.fetchall()]
